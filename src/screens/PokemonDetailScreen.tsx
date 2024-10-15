@@ -70,6 +70,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     alignItems: "center",
+    backgroundColor: "#ffffff",
   },
   name: {
     fontSize: 28,
