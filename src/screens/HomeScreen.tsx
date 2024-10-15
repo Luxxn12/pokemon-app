@@ -1,14 +1,23 @@
-// src/screens/HomeScreen.tsx
-import { Picker } from '@react-native-picker/picker';
-import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Image, RefreshControl } from 'react-native';
-import axios from 'axios';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
-import { AuthContext } from '../context/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from "@react-native-picker/picker";
+import React, { useEffect, useState, useContext } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+} from "react-native";
+import axios from "axios";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { RootStackParamList } from "../navigation/AppNavigator";
+import { AuthContext } from "../context/AuthContext";
+import { PokemonContext } from "../context/PokemonContext"; // Pastikan Anda memiliki gambar default
+import Feather from "@expo/vector-icons/Feather";
 
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, "Home">;
 
 type Props = {
   navigation: HomeScreenNavigationProp;
@@ -19,27 +28,31 @@ type Pokemon = {
   name: string;
   types: Array<{ type: { name: string } }>;
   sprites: { front_default: string };
+  abilities?: Array<{ type: { name: string } }>;
+  stats?: Array<{ type: { name: string } }>;
 };
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
+  const { customPokemon } = useContext(PokemonContext);
   const [pokemonList, setPokemonList] = useState<Pokemon[]>([]);
   const [filteredPokemon, setFilteredPokemon] = useState<Pokemon[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  const [filter, setFilter] = useState<string>('All');
-  const [customPokemon, setCustomPokemon] = useState<Pokemon[]>([]);
-  const [refreshing, setRefreshing] = useState<boolean>(false); // State untuk pull-to-refresh
+  const [error, setError] = useState<string>("");
+  const [filter, setFilter] = useState<string>("All");
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   useEffect(() => {
     fetchPokemon();
-  }, []);
+  }, [customPokemon, filter]); 
 
   const fetchPokemon = async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
-      const response = await axios.get('https://pokeapi.co/api/v2/pokemon?limit=100');
+      const response = await axios.get(
+        "https://pokeapi.co/api/v2/pokemon?limit=50"
+      );
       const results = response.data.results;
 
       const detailedPokemon = await Promise.all(
@@ -49,29 +62,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         })
       );
 
-      // Load custom Pokemon dari AsyncStorage
-      const storedCustom = await AsyncStorage.getItem('@custom_pokemon');
-      const custom = storedCustom ? JSON.parse(storedCustom) : [];
-
-      setCustomPokemon(custom);
-      const combinedPokemon = [...detailedPokemon, ...custom];
+      // Gabungkan Pokémon dari API dengan customPokemon dari context
+      const combinedPokemon = [...detailedPokemon, ...customPokemon];
       setPokemonList(combinedPokemon);
+      setLoading(false);
       setFilteredPokemon(applyFilter(combinedPokemon, filter));
-      setLoading(false);
     } catch (e) {
-      setError('Gagal mengambil data Pokémon.');
+      console.error("Error fetching Pokémon:", e);
+      setError("Gagal mengambil data Pokémon.");
       setLoading(false);
-    }
-  };
-
-  const loadCustomPokemon = async () => {
-    try {
-      const storedCustom = await AsyncStorage.getItem('@custom_pokemon');
-      if (storedCustom) {
-        setCustomPokemon(JSON.parse(storedCustom));
-      }
-    } catch (e) {
-      console.error('Failed to load custom Pokemon.');
     }
   };
 
@@ -81,11 +80,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const applyFilter = (list: Pokemon[], type: string): Pokemon[] => {
-    if (type === 'All') {
+    if (type === "All") {
       return list;
     }
     return list.filter((pokemon) =>
-      pokemon.types.some((t) => t.type.name.toLowerCase() === type.toLowerCase())
+      pokemon.types.some(
+        (t) => t.type.name.toLowerCase() === type.toLowerCase()
+      )
     );
   };
 
@@ -98,21 +99,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const renderItem = ({ item }: { item: Pokemon }) => (
     <TouchableOpacity
       style={styles.itemContainer}
-      onPress={() => navigation.navigate('PokemonDetail', { pokemon: item })}
+      onPress={() => navigation.navigate("PokemonDetail", { pokemon: item })}
     >
-      <Image source={{ uri: item.sprites.front_default }} style={styles.pokemonImage} />
+      {item.sprites && item.sprites.front_default ? (
+        <Image
+          source={{ uri: item.sprites.front_default }}
+          style={styles.pokemonImage}
+        />
+      ) : (
+        <Image
+          source={{ uri: "https://i.pravatar.cc/200?img=4" }}
+          style={styles.pokemonImage}
+        />
+      )}
       <Text style={styles.itemText}>{item.name.toUpperCase()}</Text>
     </TouchableOpacity>
   );
-
-  if (loading && !refreshing) {
-    // Menampilkan spinner hanya saat loading awal, bukan saat pull-to-refresh
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#1e90ff" />
-      </View>
-    );
-  }
 
   if (error) {
     return (
@@ -127,35 +129,44 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Filter Picker */}
-      <Picker selectedValue={filter} style={styles.picker} onValueChange={(itemValue) => handleFilter(itemValue)}>
+      <Picker
+        selectedValue={filter}
+        style={styles.picker}
+        onValueChange={(itemValue) => handleFilter(itemValue)}
+      >
         <Picker.Item label="All" value="All" />
         <Picker.Item label="Air" value="water" />
         <Picker.Item label="Listrik" value="electric" />
-        {/* Tambahkan tipe lain sesuai kebutuhan */}
       </Picker>
-
-      {/* Daftar Pokémon dengan Pull-to-Refresh */}
       <FlatList
         data={filteredPokemon}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
-
-      {/* Tombol Admin/Profile dan Logout */}
       <View style={styles.footer}>
-        {user?.role === 'admin' ? (
-          <TouchableOpacity style={styles.adminButton} onPress={() => navigation.navigate('Admin')}>
+        {user?.role === "admin" ? (
+          <TouchableOpacity
+            style={styles.adminButton}
+            onPress={() => navigation.navigate("Admin")}
+          >
+            <Feather name="user" size={24} color="black" />
             <Text style={styles.adminText}>Profile</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.adminButton} onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity
+            style={styles.adminButton}
+            onPress={() => navigation.navigate("user")}
+          >
+            <Feather name="user" size={24} color="black" />
             <Text style={styles.adminText}>Profile</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+          <Feather name="log-out" size={24} color="black" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -168,23 +179,24 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#ffffff",
   },
   picker: {
     height: 50,
-    width: '100%',
-    backgroundColor: '#f0f0f0',
+    width: "100%",
+    backgroundColor: "#ffffff",
   },
   list: {
     padding: 10,
   },
   itemContainer: {
     padding: 15,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     marginBottom: 10,
     borderRadius: 8,
     elevation: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   pokemonImage: {
     width: 70,
@@ -193,44 +205,49 @@ const styles = StyleSheet.create({
   },
   itemText: {
     fontSize: 18,
-    textTransform: 'capitalize',
+    textTransform: "capitalize",
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    padding: 10,
+    backgroundColor: "#ffffff",
+    borderTopColor: "#e0e0e0",
+    borderTopWidth: 1,
   },
   adminButton: {
-    backgroundColor: '#1e90ff',
-    padding: 15,
+    justifyContent: "center",
+    alignContent: "center",
+    alignItems: "center",
     borderRadius: 8,
   },
   adminText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: "#000000",
+    justifyContent: "center",
   },
   logoutButton: {
-    backgroundColor: '#ff6347',
-    padding: 15,
+    justifyContent: "center",
+    alignContent: "center",
+    alignItems: "center",
     borderRadius: 8,
   },
   logoutText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: "#000000",
+    justifyContent: "center",
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: '#1e90ff',
+    backgroundColor: "#1e90ff",
     padding: 10,
     borderRadius: 8,
   },
   retryText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: "#ffffff",
+    fontWeight: "bold",
   },
 });

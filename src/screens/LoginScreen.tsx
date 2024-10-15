@@ -1,12 +1,21 @@
-// src/screens/LoginScreen.tsx
-import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState, useContext } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Image,
+} from "react-native";
+import { AuthContext } from "../context/AuthContext";
+import Toast from "react-native-toast-message";
 
 const LoginScreen = () => {
   const { login } = useContext(AuthContext);
-  const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleLogin = async () => {
@@ -14,12 +23,17 @@ const LoginScreen = () => {
     const success = await login(username, password);
     setLoading(false);
     if (!success) {
-      Alert.alert('Login Gagal', 'Username atau password salah.');
+      Toast.show({
+        type: "error",
+        text1: "Login Gagal",
+        text2: "Username atau password salah.",
+      });
     }
   };
 
   return (
     <View style={styles.container}>
+      <Image source={require("../../assets/logo.png")} style={styles.image} />
       <Text style={styles.title}>Login Pokémon App</Text>
       <TextInput
         style={styles.input}
@@ -42,6 +56,7 @@ const LoginScreen = () => {
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
       )}
+      <Toast />
     </View>
   );
 };
@@ -51,34 +66,40 @@ export default LoginScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#ffffff",
+  },
+  image: {
+    width: "100%",
+    height: 200,
+    alignSelf: "center",
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
     marginBottom: 40,
-    textAlign: 'center',
-    fontWeight: 'bold',
+    textAlign: "center",
+    fontWeight: "bold",
   },
   input: {
     height: 50,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     marginBottom: 20,
     paddingHorizontal: 15,
     borderRadius: 8,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderWidth: 1,
   },
   button: {
-    backgroundColor: '#1e90ff',
+    backgroundColor: "#f4511e",
     padding: 15,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
